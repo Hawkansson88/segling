@@ -672,6 +672,17 @@
   li.item .txt{flex:1;font-size:13.5px;}
   li.item.checked .txt{text-decoration:line-through;color:var(--ink-soft);}
   li.item .who{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-soft);opacity:0.7;}
+  li.item.item-block{
+    flex-direction:column;
+    align-items:stretch;
+    gap:6px;
+  }
+  .item-main{
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .item-main .txt{flex:1;}
   .empty{color:var(--ink-soft);font-size:13px;font-style:italic;padding:10px 2px;}
 
   /* discussion */
@@ -763,6 +774,8 @@
   }
   .comment-actions button:hover{color:var(--navy);}
   .comment-actions .comment-del:hover{color:var(--coral);}
+  .comment-like.is-liked{color:var(--coral);}
+  .comment-like.is-liked:hover{color:var(--coral);}
   textarea.comment-edit-input{
     width:100%;
     border:1px solid var(--line);
@@ -966,7 +979,7 @@
   <!-- PACKING -->
   <section class="panel" id="panel-packing">
     <h2 class="panel-title">Förslag på packning</h2>
-    <p class="panel-sub">Skriv vad du tar med, så andra vet att det inte behöver packas av någon mer.</p>
+    <p class="panel-sub">Skriv vad du tar med, så andra vet att det inte behöver packas av någon mer. Kommentera under varje rad om du vill.</p>
     <div class="add-row">
       <input id="packingInput" placeholder="t.ex. Jag har packat högtalare" />
       <button id="packingAddBtn" class="btn btn-brass">Lägg till</button>
@@ -1556,7 +1569,10 @@
     return rows.length ? rows[rows.length - 1] : null;
   }
   function commentsForCrew(crewId){
-    const rows = posts.map(decodeLogg).filter(r => r._l === 'cc' && String(r.id) === String(crewId));
+    return commentsFor('cc', crewId);
+  }
+  function commentsFor(type, targetId){
+    const rows = posts.map(decodeLogg).filter(r => r._l === type && String(r.id) === String(targetId));
     rows.sort((a,b)=> new Date(a.created_at) - new Date(b.created_at));
     return applyCommentEdits(rows);
   }
@@ -1656,17 +1672,35 @@
     const listEl = document.getElementById(cfg.listId);
     const inputEl = document.getElementById(cfg.inputId);
     const btnEl = document.getElementById(cfg.btnId);
+    const expanded = new Set();
 
     function render(){
       listEl.innerHTML = items.length ? '' : `<div class="empty">${cfg.emptyText || 'Inget tillagt än.'}</div>`;
       items.forEach((it)=>{
         const li = document.createElement('li');
-        li.className = 'item' + (cfg.checkable && it.checked ? ' checked' : '');
-        li.innerHTML = `
+        const checked = cfg.checkable && it.checked;
+        li.className = 'item' + (checked ? ' checked' : '') + (cfg.comments ? ' item-block' : '');
+        const main = `
           ${cfg.checkable ? `<input type="checkbox" data-id="${it.id}" ${it.checked?'checked':''} />` : ''}
           <span class="txt">${escapeHtml(it.text)}</span>
           <span class="who">${it.added_by ? 'av '+escapeHtml(it.added_by) : ''}</span>
           <button class="rm icon-btn" data-id="${it.id}" title="Ta bort">✕</button>`;
+        if(cfg.comments){
+          const thread = commentsFor(cfg.commentType, it.id);
+          const open = expanded.has(String(it.id));
+          li.innerHTML = `
+            <div class="item-main">${main}</div>
+            <button type="button" class="comment-toggle" data-id="${it.id}">${commentCountLabel(thread.length, open)}</button>
+            <div class="comment-thread" style="${open ? '' : 'display:none;'}">
+              ${thread.map(cm=>commentItemHtml(cm)).join('')}
+              <div class="comment-compose">
+                <input class="item-comment-input" data-id="${it.id}" placeholder="Skriv en kommentar — länkar blir klickbara" />
+                <button type="button" class="btn btn-brass btn-sm item-comment-btn" data-id="${it.id}">Skicka</button>
+              </div>
+            </div>`;
+        } else {
+          li.innerHTML = main;
+        }
         listEl.appendChild(li);
       });
       if(cfg.checkable){
@@ -1688,6 +1722,35 @@
           render();
         });
       });
+      if(cfg.comments){
+        listEl.querySelectorAll('.comment-toggle').forEach(btn=>{
+          btn.addEventListener('click', ()=>{
+            const id = String(btn.dataset.id);
+            if(expanded.has(id)) expanded.delete(id);
+            else expanded.add(id);
+            render();
+          });
+        });
+        listEl.querySelectorAll('.item-comment-btn').forEach(btn=>{
+          btn.addEventListener('click', ()=>addItemComment(btn.dataset.id));
+        });
+        listEl.querySelectorAll('.item-comment-input').forEach(el=>{
+          el.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); addItemComment(el.dataset.id); } });
+        });
+        bindCommentActions(listEl, render);
+      }
+    }
+
+    async function addItemComment(itemId){
+      const input = [...listEl.querySelectorAll('.item-comment-input')].find(el=>String(el.dataset.id)===String(itemId));
+      const val = input ? input.value.trim() : '';
+      if(!val) return;
+      const body = JSON.stringify({ _l: cfg.commentType, id: String(itemId), cid: newLoggId(), text: val });
+      const { data, error } = await sb.rpc('add_discussion_post', { p_token: session.token, p_body: body });
+      if(error){ alert(rpcErrorMsg(error)); return; }
+      posts.push(Array.isArray(data) ? data[0] : data);
+      expanded.add(String(itemId));
+      render();
     }
 
     async function add(){
@@ -1716,7 +1779,8 @@
   const packingList = makeList({
     table:'packing_items', listId:'packingList', inputId:'packingInput', btnId:'packingAddBtn',
     addFn:'add_packing_item', removeFn:'remove_packing_item',
-    checkable:false, emptyText:'Inga förslag än — skriv det första!'
+    checkable:false, comments:true, commentType:'pc',
+    emptyText:'Inga förslag än — skriv det första!'
   });
   const shoppingList = makeList({
     table:'shopping_items', listId:'shoppingList', inputId:'shoppingInput', btnId:'shoppingAddBtn',
@@ -1791,10 +1855,26 @@
       .filter(c=>!deleted.has(String(c.cid)))
       .map(c=> edits[String(c.cid)] != null ? { ...c, text: edits[String(c.cid)], edited: true } : c);
   }
+  function likesFor(cid){
+    const liked = new Set();
+    posts.forEach(p=>{
+      const row = decodeLogg(p);
+      if(String(row.cid) !== String(cid)) return;
+      if(row._l === 'clike' && row.user) liked.add(row.user);
+      if(row._l === 'cunlike' && row.user) liked.delete(row.user);
+    });
+    return [...liked];
+  }
+  function currentUserLiked(cid){
+    return likesFor(cid).includes(currentUser());
+  }
   function commentItemHtml(c){
     const own = isOwnComment(c);
     const edited = c.edited ? ' · redigerad' : '';
     const editing = String(editingCommentCid) === String(c.cid);
+    const likes = likesFor(c.cid);
+    const liked = likes.includes(currentUser());
+    const likeLabel = likes.length ? `Like (${likes.length})` : 'Like';
     if(editing && own){
       return `<div class="comment" data-cid="${escapeAttr(c.cid)}">
         <div class="meta">${escapeHtml(c.author)} · ${escapeHtml(formatTime(c.created_at))}${edited}</div>
@@ -1808,10 +1888,11 @@
     return `<div class="comment" data-cid="${escapeAttr(c.cid)}">
       <div class="meta">${escapeHtml(c.author)} · ${escapeHtml(formatTime(c.created_at))}${edited}</div>
       <div class="txt">${linkify(c.text || '')}</div>
-      ${own ? `<div class="comment-actions">
-        <button type="button" class="comment-edit" data-cid="${escapeAttr(c.cid)}">Ändra</button>
-        <button type="button" class="comment-del" data-cid="${escapeAttr(c.cid)}">Ta bort</button>
-      </div>` : ''}
+      <div class="comment-actions">
+        <button type="button" class="comment-like${liked ? ' is-liked' : ''}" data-cid="${escapeAttr(c.cid)}" title="${likes.length ? escapeAttr(likes.join(', ')) : 'Like'}">${liked ? '♥' : '♡'} ${likeLabel}</button>
+        ${own ? `<button type="button" class="comment-edit" data-cid="${escapeAttr(c.cid)}">Ändra</button>
+        <button type="button" class="comment-del" data-cid="${escapeAttr(c.cid)}">Ta bort</button>` : ''}
+      </div>
     </div>`;
   }
   function bindCommentActions(root, rerender){
@@ -1833,6 +1914,19 @@
     root.querySelectorAll('.comment-del').forEach(btn=>{
       btn.addEventListener('click', ()=>deleteComment(btn.dataset.cid, rerender));
     });
+    root.querySelectorAll('.comment-like').forEach(btn=>{
+      btn.addEventListener('click', ()=>toggleLike(btn.dataset.cid, rerender));
+    });
+  }
+  async function toggleLike(cid, rerender){
+    const liked = currentUserLiked(cid);
+    const { data, error } = await sb.rpc('add_discussion_post', {
+      p_token: session.token,
+      p_body: JSON.stringify({ _l: liked ? 'cunlike' : 'clike', cid: String(cid), user: currentUser() })
+    });
+    if(error){ alert(rpcErrorMsg(error)); return; }
+    posts.push(Array.isArray(data) ? data[0] : data);
+    rerender();
   }
   async function saveCommentEdit(cid, rerender){
     const box = [...document.querySelectorAll('.comment')].find(el=>el.dataset.cid===String(cid));
@@ -1870,7 +1964,7 @@
     const comments = {};
     posts.forEach(p=>{
       const row = decodeLogg(p);
-      if(row._l === 'cc' || row._l === 'cprof' || row._l === 'cedit' || row._l === 'cdel') return;
+      if(row._l === 'cc' || row._l === 'cprof' || row._l === 'cedit' || row._l === 'cdel' || row._l === 'pc' || row._l === 'clike' || row._l === 'cunlike') return;
       if(row._l === 'c'){
         (comments[row.id] ||= []).push(row);
       } else if(row._l === 't'){
