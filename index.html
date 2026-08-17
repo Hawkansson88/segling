@@ -1,0 +1,1160 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Matroserna — Trogir 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+  :root{
+    --navy:#16324F;
+    --sea:#2F6690;
+    --mist:#EAF2F1;
+    --sand:#E8DEC7;
+    --brass:#C08A4E;
+    --coral:#D8572A;
+    --ink:#1C2B30;
+    --ink-soft:#5B6E72;
+    --line:#CBD9D6;
+    --white:#FFFFFF;
+    --radius:10px;
+    --shadow:0 2px 10px rgba(22,50,79,0.08);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--mist);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .app{max-width:760px;margin:0 auto;padding:0 0 60px;}
+
+  /* ---------- BUTTONS ---------- */
+  .btn{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+    border:none;
+    border-radius:999px;
+    padding:10px 20px;
+    font-family:'Inter',sans-serif;
+    font-size:13px;
+    font-weight:600;
+    letter-spacing:0.01em;
+    cursor:pointer;
+    transition:transform .12s ease, box-shadow .15s ease, background .15s ease;
+    box-shadow:0 1px 2px rgba(22,50,79,0.18);
+  }
+  .btn:hover{transform:translateY(-1px);box-shadow:0 5px 12px rgba(22,50,79,0.22);}
+  .btn:active{transform:translateY(0);box-shadow:0 1px 2px rgba(22,50,79,0.18);}
+  .btn:disabled{opacity:0.55;cursor:default;transform:none;box-shadow:none;}
+  .btn-brass{background:linear-gradient(180deg,#CC9A5C,var(--brass));color:var(--white);}
+  .btn-brass:hover{background:linear-gradient(180deg,#C48E4C,#A87740);}
+  .btn-navy{background:linear-gradient(180deg,#1D3D5E,var(--navy));color:var(--white);}
+  .btn-navy:hover{background:linear-gradient(180deg,#16324F,#0F2438);}
+  .btn-sea{background:linear-gradient(180deg,#3C7CA6,var(--sea));color:var(--white);}
+  .btn-sea:hover{background:linear-gradient(180deg,#2F6690,#255575);}
+  .btn-sm{padding:7px 15px;font-size:12px;}
+  .icon-btn{
+    border:none;
+    background:none;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    width:24px;height:24px;
+    border-radius:50%;
+    color:var(--line);
+    transition:background .15s, color .15s;
+    flex-shrink:0;
+    padding:0;
+  }
+  .icon-btn:hover{color:var(--coral);background:rgba(216,87,42,0.1);}
+
+  /* ---------- HERO ---------- */
+  .hero{
+    background:linear-gradient(180deg,var(--navy) 0%,#1E415F 100%);
+    color:var(--white);
+    padding:36px 24px 26px;
+    position:relative;
+    overflow:hidden;
+  }
+  .hero-eyebrow{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--sand);
+    opacity:0.85;
+  }
+  .hero h1{
+    font-family:'Fraunces',serif;
+    font-weight:700;
+    font-size:clamp(30px,7vw,42px);
+    margin:6px 0 4px;
+    letter-spacing:-0.01em;
+  }
+  .hero p.sub{
+    margin:0 0 18px;
+    font-size:14px;
+    color:#C9DCE6;
+  }
+  .horizon{
+    width:100%;
+    height:64px;
+    display:block;
+  }
+  .countdown-row{
+    display:flex;
+    align-items:baseline;
+    gap:10px;
+    margin-top:14px;
+  }
+  .countdown-num{
+    font-family:'Fraunces',serif;
+    font-weight:700;
+    font-size:44px;
+    line-height:1;
+    color:var(--brass);
+  }
+  .countdown-label{
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;
+    color:#C9DCE6;
+    letter-spacing:0.04em;
+  }
+
+  /* ---------- FLAG NAV ---------- */
+  .flagnav{
+    display:flex;
+    gap:2px;
+    padding:0 12px;
+    margin-top:-1px;
+    overflow-x:auto;
+    scroll-snap-type:x proximity;
+    -webkit-overflow-scrolling:touch;
+  }
+  .flag{
+    position:relative;
+    flex:1;
+    min-width:82px;
+    padding:12px 10px 10px 14px;
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    letter-spacing:0.03em;
+    text-transform:uppercase;
+    text-align:center;
+    color:var(--white);
+    background:var(--sea);
+    border:none;
+    cursor:pointer;
+    clip-path:polygon(0 0,100% 0,88% 100%,0% 100%);
+    opacity:0.62;
+    transition:opacity .15s, transform .15s;
+    scroll-snap-align:start;
+  }
+  .flag:hover{opacity:0.85;}
+  .flag.active{
+    opacity:1;
+    background:var(--brass);
+    transform:translateY(-2px);
+  }
+  .flag-colors .flag:nth-child(1){background-color:#2F6690;}
+  .flag-colors .flag:nth-child(2){background-color:#3E7C59;}
+  .flag-colors .flag:nth-child(3){background-color:#8A4E58;}
+  .flag-colors .flag:nth-child(4){background-color:#7A5C3E;}
+  .flag-colors .flag:nth-child(5){background-color:#4A5470;}
+  .flag-colors .flag.active{background-color:var(--brass) !important;opacity:1;}
+
+  /* ---------- SECTIONS ---------- */
+  section.panel{
+    display:none;
+    padding:26px 20px 10px;
+    animation:fade .25s ease;
+  }
+  section.panel.active{display:block;}
+  @keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+
+  h2.panel-title{
+    font-family:'Fraunces',serif;
+    font-size:22px;
+    font-weight:600;
+    margin:0 0 4px;
+    color:var(--navy);
+  }
+  p.panel-sub{
+    margin:0 0 20px;
+    font-size:13px;
+    color:var(--ink-soft);
+  }
+
+  /* logged-in-as bar */
+  .whoami{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    background:var(--white);
+    border:1px solid var(--line);
+    border-radius:999px;
+    padding:9px 14px;
+    margin-bottom:22px;
+    font-size:13px;
+  }
+  .whoami .dot{width:8px;height:8px;border-radius:50%;background:#3E7C59;flex-shrink:0;}
+  .whoami .who-name{flex:1;font-weight:600;}
+  .whoami .logout-link{
+    border:none;background:none;color:var(--ink-soft);
+    font-family:'JetBrains Mono',monospace;font-size:11px;
+    cursor:pointer;text-decoration:underline;
+    padding:0;
+  }
+  .whoami .logout-link:hover{color:var(--coral);}
+
+  /* login screen */
+  .login-screen{
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:linear-gradient(180deg,var(--navy) 0%,#1E415F 100%);
+    padding:24px;
+  }
+  .login-card{
+    background:var(--white);
+    border-radius:16px;
+    padding:32px 26px;
+    max-width:360px;
+    width:100%;
+    box-shadow:0 20px 50px rgba(0,0,0,0.3);
+  }
+  .login-card .hero-eyebrow{color:var(--sea);opacity:1;margin-bottom:8px;}
+  .login-title{
+    font-family:'Fraunces',serif;
+    font-size:26px;
+    font-weight:700;
+    margin:0 0 8px;
+    color:var(--navy);
+  }
+  .login-sub{
+    font-size:13px;
+    color:var(--ink-soft);
+    line-height:1.5;
+    margin:0 0 20px;
+  }
+  .login-card select,
+  .login-card input{
+    width:100%;
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:11px 13px;
+    font-family:'Inter',sans-serif;
+    font-size:16px;
+    margin-bottom:10px;
+    outline:none;
+    background:var(--white);
+  }
+  .login-card select:focus,
+  .login-card input:focus{border-color:var(--brass);}
+  .login-error{
+    color:var(--coral);
+    font-size:12.5px;
+    margin-top:10px;
+    line-height:1.4;
+  }
+  .login-hidden{display:none !important;}
+
+  /* itinerary */
+  .day-card{
+    background:var(--white);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:14px 16px;
+    margin-bottom:10px;
+    box-shadow:var(--shadow);
+    display:flex;
+    gap:14px;
+  }
+  .day-date{
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;
+    color:var(--brass);
+    font-weight:600;
+    min-width:64px;
+    padding-top:2px;
+  }
+  .day-body{flex:1;}
+  .day-body input.loc{
+    font-family:'Fraunces',serif;
+    font-size:16px;
+    font-weight:600;
+    border:none;
+    outline:none;
+    background:transparent;
+    width:100%;
+    color:var(--ink);
+    padding:0 0 2px;
+  }
+  .day-body textarea.notes{
+    width:100%;
+    border:none;
+    outline:none;
+    resize:none;
+    background:transparent;
+    font-family:'Inter',sans-serif;
+    font-size:13px;
+    color:var(--ink-soft);
+    line-height:1.5;
+    min-height:20px;
+  }
+  .day-body input.coord{
+    width:100%;
+    border:1px dashed var(--line);
+    border-radius:8px;
+    outline:none;
+    background:transparent;
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    color:var(--sea);
+    padding:5px 9px;
+    margin-top:6px;
+  }
+  .day-body input.coord:focus{border-color:var(--brass);}
+  .day-body input.coord::placeholder{color:var(--line);}
+  .geo-row{display:flex;gap:6px;margin-top:8px;}
+  .geo-row input.placesearch{
+    flex:1;
+    border:1px solid var(--line);
+    border-radius:8px;
+    outline:none;
+    background:var(--white);
+    font-family:'Inter',sans-serif;
+    font-size:12.5px;
+    padding:7px 11px;
+  }
+  .geo-row input.placesearch:focus{border-color:var(--brass);}
+  .coord-label{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    color:var(--brass);
+    margin-top:6px;
+  }
+  .geo-status{
+    font-size:11.5px;
+    color:var(--coral);
+    margin-top:4px;
+  }
+
+  #mapContainer{
+    width:100%;
+    height:420px;
+    border-radius:var(--radius);
+    border:1px solid var(--line);
+    box-shadow:var(--shadow);
+  }
+  .leaflet-popup-content{font-family:'Inter',sans-serif;font-size:12.5px;}
+  .leaflet-popup-content b{font-family:'Fraunces',serif;}
+  .map-pin-label{
+    background:var(--brass);
+    color:var(--white);
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    font-weight:600;
+    width:22px;height:22px;
+    border-radius:50% 50% 50% 0;
+    transform:rotate(-45deg);
+    display:flex;align-items:center;justify-content:center;
+    border:2px solid var(--white);
+    box-shadow:0 1px 4px rgba(0,0,0,0.3);
+  }
+  .map-pin-label span{transform:rotate(45deg);}
+  .map-empty{
+    color:var(--ink-soft);
+    font-size:13px;
+    font-style:italic;
+    padding:14px 2px;
+  }
+  .panel-header-row{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:10px;
+  }
+  .map-toggle-btn{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+    border:1px solid var(--line);
+    background:var(--white);
+    border-radius:999px;
+    padding:8px 14px;
+    cursor:pointer;
+    font-family:'Inter',sans-serif;
+    font-size:12px;
+    font-weight:600;
+    color:var(--sea);
+    flex-shrink:0;
+    transition:background .15s, border-color .15s, color .15s, transform .12s;
+    box-shadow:0 1px 2px rgba(22,50,79,0.08);
+  }
+  .map-toggle-btn:hover{border-color:var(--sea);transform:translateY(-1px);}
+  .map-toggle-btn.active{background:var(--sea);border-color:var(--sea);color:var(--white);}
+  .map-drawer{
+    max-height:0;
+    overflow:hidden;
+    opacity:0;
+    transition:max-height .32s ease, opacity .25s ease, margin .3s ease;
+    margin-top:0;
+  }
+  .map-drawer.open{
+    max-height:480px;
+    opacity:1;
+    margin-top:16px;
+    margin-bottom:20px;
+  }
+
+  /* crew */
+  .crew-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  @media(max-width:480px){.crew-grid{grid-template-columns:1fr;}}
+  .crew-card{
+    background:var(--white);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:14px;
+    box-shadow:var(--shadow);
+    position:relative;
+  }
+  .crew-card .name{font-family:'Fraunces',serif;font-weight:600;font-size:16px;margin:0 0 2px;}
+  .crew-card .tag{
+    display:inline-block;
+    font-family:'JetBrains Mono',monospace;
+    font-size:10px;
+    letter-spacing:0.03em;
+    text-transform:uppercase;
+    color:var(--sea);
+    background:var(--mist);
+    padding:2px 7px;
+    border-radius:20px;
+    margin-bottom:6px;
+  }
+  .crew-card .bio{font-size:12.5px;color:var(--ink-soft);line-height:1.45;margin:0;}
+  .crew-card .del{
+    position:absolute;top:8px;right:8px;
+    border:none;background:none;color:var(--line);
+    cursor:pointer;font-size:14px;line-height:1;
+  }
+  .crew-card .del:hover{color:var(--coral);}
+  .add-crew{
+    background:var(--white);
+    border:1px dashed var(--line);
+    border-radius:var(--radius);
+    padding:14px;
+  }
+  .add-crew input,.add-crew textarea{
+    width:100%;
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:8px 11px;
+    font-family:'Inter',sans-serif;
+    font-size:13px;
+    margin-bottom:7px;
+    outline:none;
+    transition:border-color .15s;
+  }
+  .add-crew input:focus,.add-crew textarea:focus{border-color:var(--brass);}
+  .add-crew textarea{resize:none;min-height:44px;}
+
+  /* lists (packing / shopping) */
+  .add-row{display:flex;gap:8px;margin-bottom:16px;}
+  .add-row input{
+    flex:1;
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:10px 13px;
+    font-size:13px;
+    font-family:'Inter',sans-serif;
+    outline:none;
+    transition:border-color .15s;
+  }
+  .add-row input:focus{border-color:var(--brass);}
+  ul.item-list{list-style:none;margin:0;padding:0;}
+  li.item{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    background:var(--white);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:10px 12px;
+    margin-bottom:6px;
+  }
+  li.item input[type=checkbox]{
+    width:17px;height:17px;
+    accent-color:var(--brass);
+    cursor:pointer;
+    flex-shrink:0;
+  }
+  li.item .txt{flex:1;font-size:13.5px;}
+  li.item.checked .txt{text-decoration:line-through;color:var(--ink-soft);}
+  li.item .who{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-soft);opacity:0.7;}
+  .empty{color:var(--ink-soft);font-size:13px;font-style:italic;padding:10px 2px;}
+
+  /* discussion */
+  .post{
+    background:var(--white);
+    border:1px solid var(--line);
+    border-left:3px solid var(--brass);
+    border-radius:10px;
+    padding:10px 14px;
+    margin-bottom:10px;
+  }
+  .post .meta{
+    font-family:'JetBrains Mono',monospace;
+    font-size:10.5px;
+    color:var(--sea);
+    margin-bottom:4px;
+  }
+  .post .txt{font-size:13.5px;line-height:1.5;}
+  textarea.post-input{
+    width:100%;
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:10px 12px;
+    font-family:'Inter',sans-serif;
+    font-size:13px;
+    min-height:60px;
+    resize:vertical;
+    outline:none;
+    margin-bottom:8px;
+  }
+  .loading{font-size:12px;color:var(--ink-soft);font-family:'JetBrains Mono',monospace;padding:8px 0;}
+
+  /* ---------- MOBILE ---------- */
+  @media(max-width:600px){
+    /* iOS Safari auto-zooms on focus when font-size < 16px — keep every
+       text input/textarea at 16px on small screens to prevent that. */
+    .whoami input,
+    .day-body textarea.notes,
+    .day-body input.coord,
+    .geo-row input.placesearch,
+    .add-crew input, .add-crew textarea,
+    .add-row input,
+    textarea.post-input{
+      font-size:16px;
+    }
+    .day-card{
+      flex-direction:column;
+      gap:2px;
+      padding:12px 14px;
+    }
+    .day-date{
+      min-width:auto;
+      font-size:11px;
+      letter-spacing:0.06em;
+      text-transform:uppercase;
+      color:var(--brass);
+      padding-top:0;
+    }
+    li.item input[type=checkbox]{width:20px;height:20px;}
+    .icon-btn, li.item .rm{width:30px;height:30px;}
+    .flag{min-width:74px;font-size:10px;padding:11px 8px 9px 11px;}
+    .hero{padding:28px 18px 22px;}
+    .panel{padding:22px 16px 10px;}
+    .geo-row{flex-wrap:nowrap;}
+  }
+</style>
+</head>
+<body>
+
+<div id="loginScreen" class="login-screen">
+  <div class="login-card">
+    <div class="hero-eyebrow">MATROSERNA · TROGIR 2026</div>
+    <h1 class="login-title">Vem är du?</h1>
+    <p class="login-sub">Första gången du loggar in väljer du själv en pinkod (t.ex. sista fyra siffrorna i ditt personnummer) — den sparas då åt dig.</p>
+    <select id="loginName">
+      <option value="">Välj namn...</option>
+    </select>
+    <input id="loginPin" type="password" inputmode="numeric" maxlength="6" placeholder="Pinkod" />
+    <button id="loginBtn" class="btn btn-brass" style="width:100%;">Logga in</button>
+    <div id="loginError" class="login-error" style="display:none;"></div>
+  </div>
+</div>
+
+<div class="app login-hidden" id="appRoot">
+
+  <div class="hero">
+    <div class="hero-eyebrow">12–19 SEPTEMBER · TROGIR, KROATIEN</div>
+    <h1>Matroserna</h1>
+    <p class="sub">Katamaran, 11 ombord, en moster som fyller 60.</p>
+    <svg class="horizon" viewBox="0 0 700 70" preserveAspectRatio="none">
+      <line x1="0" y1="50" x2="700" y2="50" stroke="#2F6690" stroke-width="1" opacity="0.5"/>
+      <path d="M40 50 L60 32 L80 50 Z" fill="none" stroke="#C9DCE6" stroke-width="1.3" opacity="0.8"/>
+      <line x1="60" y1="50" x2="60" y2="26" stroke="#C9DCE6" stroke-width="1.3" opacity="0.8"/>
+      <circle cx="600" cy="20" r="12" fill="#C08A4E" opacity="0.85"/>
+    </svg>
+    <div class="countdown-row">
+      <div class="countdown-num" id="countdownNum">–</div>
+      <div class="countdown-label">DAGAR TILL AVFÄRD</div>
+    </div>
+  </div>
+
+  <nav class="flagnav flag-colors">
+    <button class="flag active" data-panel="resplan">Resplan</button>
+    <button class="flag" data-panel="crew">Matroserna</button>
+    <button class="flag" data-panel="packing">Packlista</button>
+    <button class="flag" data-panel="shopping">Inköp</button>
+    <button class="flag" data-panel="discussion">Logg</button>
+  </nav>
+
+  <div class="whoami">
+    <div class="dot"></div>
+    <div class="who-name" id="whoNameDisplay">—</div>
+    <button class="logout-link" id="logoutBtn">logga ut</button>
+  </div>
+
+  <!-- RESPLAN -->
+  <section class="panel active" id="panel-resplan">
+    <div class="panel-header-row">
+      <div>
+        <h2 class="panel-title">Resplan</h2>
+        <p class="panel-sub">Klicka i plats eller anteckning för att redigera — sparas direkt för alla.</p>
+      </div>
+      <button id="mapToggleBtn" class="map-toggle-btn" title="Visa karta">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 20l-5.447-2.724A1 1 0 0 1 3 16.382V5.618a1 1 0 0 1 1.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0 0 21 18.382V7.618a1 1 0 0 0-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+        Karta
+      </button>
+    </div>
+    <div class="map-drawer" id="mapDrawer">
+      <div id="mapEmptyMsg" class="map-empty" style="display:none;">Inga koordinater tillagda än — sök fram en plats i ett dagskort nedan så dyker den upp här.</div>
+      <div id="mapContainer"></div>
+    </div>
+    <div id="itineraryList"></div>
+  </section>
+
+  <!-- CREW -->
+  <section class="panel" id="panel-crew">
+    <h2 class="panel-title">Matroserna</h2>
+    <p class="panel-sub">Vilka är med ombord.</p>
+    <div class="crew-grid" id="crewGrid"></div>
+    <div class="add-crew" style="margin-top:16px;">
+      <p class="panel-sub" style="margin-bottom:10px;">Redigera din egen rad:</p>
+      <input id="myTag" placeholder="Titel ombord (t.ex. Kock, Navigatör, Festfixare)" />
+      <textarea id="myBio" placeholder="Kort bio / skämt / varningstext..."></textarea>
+      <div class="add-row" style="margin-bottom:0;">
+        <button id="saveProfileBtn" class="btn btn-brass" style="flex:1;">Spara</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- PACKING -->
+  <section class="panel" id="panel-packing">
+    <h2 class="panel-title">Packlista</h2>
+    <p class="panel-sub">Delad för alla — bocka av det du packat.</p>
+    <div class="add-row">
+      <input id="packingInput" placeholder="Lägg till sak att packa..." />
+      <button id="packingAddBtn" class="btn btn-brass">Lägg till</button>
+    </div>
+    <ul class="item-list" id="packingList"></ul>
+  </section>
+
+  <!-- SHOPPING -->
+  <section class="panel" id="panel-shopping">
+    <h2 class="panel-title">Inköpslista</h2>
+    <p class="panel-sub">Vad som ska handlas — lägg till och ta bort allteftersom.</p>
+    <div class="add-row">
+      <input id="shoppingInput" placeholder="Lägg till vara..." />
+      <button id="shoppingAddBtn" class="btn btn-brass">Lägg till</button>
+    </div>
+    <ul class="item-list" id="shoppingList"></ul>
+  </section>
+
+  <!-- DISCUSSION -->
+  <section class="panel" id="panel-discussion">
+    <h2 class="panel-title">Loggboken</h2>
+    <p class="panel-sub">Diskutera resplan, fixar, eller vad som helst.</p>
+    <textarea class="post-input" id="postInput" placeholder="Skriv ett inlägg..."></textarea>
+    <button class="btn btn-navy" id="postBtn">Posta</button>
+    <div id="discussionList" style="margin-top:18px;"></div>
+  </section>
+
+</div>
+
+<script>
+(function(){
+  // ============================================================
+  // KONFIG — fyll i efter att du skapat Supabase-projektet
+  // (Project Settings → API). Kör supabase-schema.sql i SQL Editor
+  // innan du testar appen.
+  // ============================================================
+  const SUPABASE_URL = 'https://DITT-PROJEKT.supabase.co';
+  const SUPABASE_ANON_KEY = 'DIN-ANON-KEY';
+
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  const DEPARTURE = new Date('2026-09-12T09:00:00');
+
+  // ---------- countdown ----------
+  function updateCountdown(){
+    const now = new Date();
+    const diff = Math.ceil((DEPARTURE - now) / (1000*60*60*24));
+    document.getElementById('countdownNum').textContent = diff > 0 ? diff : (diff === 0 ? 'Idag!' : 'Avgått');
+  }
+  updateCountdown();
+
+  // ---------- tabs ----------
+  const flags = document.querySelectorAll('.flag');
+  const panels = document.querySelectorAll('.panel');
+  flags.forEach(f=>{
+    f.addEventListener('click', ()=>{
+      flags.forEach(x=>x.classList.remove('active'));
+      panels.forEach(p=>p.classList.remove('active'));
+      f.classList.add('active');
+      document.getElementById('panel-'+f.dataset.panel).classList.add('active');
+    });
+  });
+
+  // ============================================================
+  // AUTH — session sparas i localStorage (denna fil körs som en
+  // riktig hemsida, inte som Claude-artifact, så det fungerar fint)
+  // ============================================================
+  let session = null; // {token, crew_id, name}
+
+  function loadSession(){
+    try{
+      const raw = localStorage.getItem('matroserna_session');
+      if(raw) session = JSON.parse(raw);
+    }catch(e){ session = null; }
+  }
+  function saveSession(s){
+    session = s;
+    localStorage.setItem('matroserna_session', JSON.stringify(s));
+  }
+  function clearSession(){
+    session = null;
+    localStorage.removeItem('matroserna_session');
+  }
+  function currentUser(){
+    return session ? session.name : 'Okänd';
+  }
+
+  const loginScreen = document.getElementById('loginScreen');
+  const appRoot = document.getElementById('appRoot');
+  const loginName = document.getElementById('loginName');
+  const loginPin = document.getElementById('loginPin');
+  const loginBtn = document.getElementById('loginBtn');
+  const loginError = document.getElementById('loginError');
+  const whoNameDisplay = document.getElementById('whoNameDisplay');
+  const logoutBtn = document.getElementById('logoutBtn');
+
+  async function populateNameDropdown(){
+    const { data, error } = await sb.from('crew_public').select('name').order('name');
+    if(error || !data) return;
+    data.forEach(row=>{
+      const opt = document.createElement('option');
+      opt.value = row.name;
+      opt.textContent = row.name;
+      loginName.appendChild(opt);
+    });
+  }
+
+  async function doLogin(){
+    const name = loginName.value;
+    const pin = loginPin.value.trim();
+    loginError.style.display = 'none';
+    if(!name){ loginError.textContent = 'Välj ditt namn.'; loginError.style.display = 'block'; return; }
+    if(!pin || pin.length < 4){ loginError.textContent = 'Pinkoden måste vara minst 4 tecken.'; loginError.style.display = 'block'; return; }
+
+    loginBtn.disabled = true;
+    loginBtn.textContent = 'Loggar in...';
+    try{
+      const { data, error } = await sb.rpc('login', { p_name: name, p_pin: pin });
+      if(error) throw error;
+      const row = Array.isArray(data) ? data[0] : data;
+      saveSession({ token: row.token, crew_id: row.crew_id, name: row.name });
+      enterApp();
+    }catch(e){
+      loginError.textContent = (e && e.message) ? e.message : 'Något gick fel — försök igen.';
+      loginError.style.display = 'block';
+    }finally{
+      loginBtn.disabled = false;
+      loginBtn.textContent = 'Logga in';
+    }
+  }
+  loginBtn.addEventListener('click', doLogin);
+  loginPin.addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+
+  logoutBtn.addEventListener('click', ()=>{
+    clearSession();
+    location.reload();
+  });
+
+  function enterApp(){
+    loginScreen.classList.add('login-hidden');
+    appRoot.classList.remove('login-hidden');
+    whoNameDisplay.textContent = currentUser();
+    boot();
+  }
+
+  // ---------- helpers ----------
+  function escapeHtml(str){
+    return (str||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  }
+  function escapeAttr(str){ return escapeHtml(str); }
+  function autoGrow(el){ el.style.height='auto'; el.style.height=(el.scrollHeight)+'px'; }
+  function rpcErrorMsg(e){ return (e && e.message) ? e.message : 'Något gick fel — försök igen.'; }
+
+  // ============================================================
+  // ITINERARY
+  // ============================================================
+  let itinerary = [];
+  const itineraryList = document.getElementById('itineraryList');
+
+  async function loadItinerary(){
+    const { data, error } = await sb.from('itinerary_days').select('*').order('day_index');
+    itinerary = (!error && data) ? data : [];
+  }
+
+  function renderItinerary(){
+    itineraryList.innerHTML = '';
+    itinerary.forEach((day)=>{
+      const card = document.createElement('div');
+      card.className = 'day-card';
+      card.innerHTML = `
+        <div class="day-date">${escapeHtml(day.date_label)}</div>
+        <div class="day-body">
+          <input class="loc" data-id="${day.id}" placeholder="Plats / hamn..." value="${escapeAttr(day.loc)}" />
+          <textarea class="notes" data-id="${day.id}" rows="1" placeholder="Anteckning...">${escapeHtml(day.notes)}</textarea>
+          <div class="geo-row">
+            <input class="placesearch" data-id="${day.id}" placeholder="Sök plats, t.ex. Split hamn..." />
+            <button class="geobtn btn btn-sea btn-sm" data-id="${day.id}">Sök</button>
+          </div>
+          <div class="geo-status" data-id="${day.id}" style="display:none;"></div>
+          ${day.coord_label ? `<div class="coord-label">📍 ${escapeHtml(day.coord_label)}</div>` : ''}
+          <input class="coord" data-id="${day.id}" placeholder="eller ange koordinater manuellt: 43.5147, 16.2510" value="${escapeAttr(day.coord||'')}" />
+        </div>`;
+      itineraryList.appendChild(card);
+    });
+
+    itineraryList.querySelectorAll('input.loc').forEach(el=>{
+      el.addEventListener('change', ()=>saveDayField(el.dataset.id, 'loc', el.value));
+    });
+    itineraryList.querySelectorAll('textarea.notes').forEach(el=>{
+      autoGrow(el);
+      el.addEventListener('input', ()=>autoGrow(el));
+      el.addEventListener('change', ()=>saveDayField(el.dataset.id, 'notes', el.value));
+    });
+    itineraryList.querySelectorAll('input.coord').forEach(el=>{
+      el.addEventListener('change', ()=>saveDayField(el.dataset.id, 'coord', el.value.trim(), true));
+    });
+    itineraryList.querySelectorAll('.geobtn').forEach(btn=>{
+      btn.addEventListener('click', ()=>doGeocode(btn.dataset.id));
+    });
+    itineraryList.querySelectorAll('input.placesearch').forEach(el=>{
+      el.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); doGeocode(el.dataset.id); } });
+    });
+  }
+
+  async function saveDayField(id, field, value, clearLabel){
+    const day = itinerary.find(d=>String(d.id)===String(id));
+    if(!day) return;
+    day[field] = value;
+    if(clearLabel) day.coord_label = '';
+    const { error } = await sb.rpc('update_itinerary_day', {
+      p_token: session.token, p_id: day.id,
+      p_loc: day.loc, p_notes: day.notes, p_coord: day.coord, p_coord_label: day.coord_label
+    });
+    if(error){ alert(rpcErrorMsg(error)); return; }
+    if(clearLabel){ renderItinerary(); }
+    renderMap();
+  }
+
+  async function doGeocode(id){
+    const card = [...itineraryList.children].find(c=>c.querySelector(`[data-id="${id}"]`));
+    const searchInput = card.querySelector('input.placesearch');
+    const btn = card.querySelector('.geobtn');
+    const statusEl = card.querySelector('.geo-status');
+    const query = searchInput.value.trim();
+    if(!query) return;
+
+    btn.disabled = true;
+    btn.textContent = 'Söker...';
+    statusEl.style.display = 'none';
+
+    try{
+      const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`;
+      const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      const data = await res.json();
+      if(data && data.length){
+        const hit = data[0];
+        const day = itinerary.find(d=>String(d.id)===String(id));
+        day.coord = `${parseFloat(hit.lat).toFixed(5)}, ${parseFloat(hit.lon).toFixed(5)}`;
+        day.coord_label = hit.display_name.split(',').slice(0,3).join(',');
+        const { error } = await sb.rpc('update_itinerary_day', {
+          p_token: session.token, p_id: day.id,
+          p_loc: day.loc, p_notes: day.notes, p_coord: day.coord, p_coord_label: day.coord_label
+        });
+        if(error){ alert(rpcErrorMsg(error)); btn.disabled=false; btn.textContent='Sök'; return; }
+        renderItinerary();
+        renderMap();
+      } else {
+        statusEl.textContent = 'Hittade ingen plats — försök med annat namn eller ange koordinater manuellt.';
+        statusEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Sök';
+      }
+    } catch(e){
+      statusEl.textContent = 'Sökningen misslyckades — ange koordinater manuellt istället.';
+      statusEl.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'Sök';
+    }
+  }
+
+  // ============================================================
+  // MAP
+  // ============================================================
+  let leafletMap = null;
+  let mapLayerGroup = null;
+  const mapDrawer = document.getElementById('mapDrawer');
+  const mapToggleBtn = document.getElementById('mapToggleBtn');
+
+  function parseCoord(str){
+    if(!str) return null;
+    const parts = str.split(',').map(s=>parseFloat(s.trim()));
+    if(parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) return null;
+    return {lat:parts[0], lng:parts[1]};
+  }
+  function renderMap(){
+    if(!itinerary) return;
+    if(!mapDrawer.classList.contains('open') && !leafletMap) return;
+
+    const points = itinerary
+      .map(d=>({...d, c:parseCoord(d.coord)}))
+      .filter(d=>d.c);
+
+    const emptyMsg = document.getElementById('mapEmptyMsg');
+    const mapEl = document.getElementById('mapContainer');
+
+    if(!points.length){
+      emptyMsg.style.display = 'block';
+      mapEl.style.display = 'none';
+      return;
+    }
+    emptyMsg.style.display = 'none';
+    mapEl.style.display = 'block';
+
+    if(!leafletMap){
+      leafletMap = L.map('mapContainer');
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap',
+        maxZoom: 18
+      }).addTo(leafletMap);
+      mapLayerGroup = L.layerGroup().addTo(leafletMap);
+    }
+
+    mapLayerGroup.clearLayers();
+    const latlngs = [];
+    points.forEach((p, idx)=>{
+      const icon = L.divIcon({
+        className:'',
+        html:`<div class="map-pin-label"><span>${idx+1}</span></div>`,
+        iconSize:[22,22],
+        iconAnchor:[11,22]
+      });
+      const marker = L.marker([p.c.lat, p.c.lng], {icon}).addTo(mapLayerGroup);
+      marker.bindPopup(`<b>${escapeHtml(p.date_label)}</b><br>${escapeHtml(p.loc || 'Ingen platsnamn angivet')}`);
+      latlngs.push([p.c.lat, p.c.lng]);
+    });
+    if(latlngs.length > 1){
+      L.polyline(latlngs, {color:'#C08A4E', weight:2, dashArray:'5,6', opacity:0.85}).addTo(mapLayerGroup);
+    }
+    if(latlngs.length === 1){
+      leafletMap.setView(latlngs[0], 11);
+    } else {
+      leafletMap.fitBounds(latlngs, {padding:[30,30]});
+    }
+  }
+
+  mapToggleBtn.addEventListener('click', ()=>{
+    const isOpen = mapDrawer.classList.toggle('open');
+    mapToggleBtn.classList.toggle('active', isOpen);
+    if(isOpen){
+      renderMap();
+      setTimeout(()=>{ if(leafletMap) leafletMap.invalidateSize(); }, 320);
+    }
+  });
+
+  // ============================================================
+  // CREW (läsbar roster + redigera egen profil)
+  // ============================================================
+  let crew = [];
+  const crewGrid = document.getElementById('crewGrid');
+
+  async function loadCrew(){
+    const { data, error } = await sb.from('crew_public').select('*').order('name');
+    crew = (!error && data) ? data : [];
+  }
+  function renderCrew(){
+    crewGrid.innerHTML = crew.length ? '' : '<div class="empty">Ingen besättning ännu.</div>';
+    crew.forEach((c)=>{
+      const card = document.createElement('div');
+      card.className = 'crew-card';
+      card.innerHTML = `
+        <div class="name">${escapeHtml(c.name)}${c.id===session.crew_id ? ' <span style="color:var(--brass);font-size:11px;">(du)</span>' : ''}</div>
+        ${c.tag ? `<div class="tag">${escapeHtml(c.tag)}</div>` : ''}
+        <p class="bio">${escapeHtml(c.bio||'')}</p>`;
+      crewGrid.appendChild(card);
+    });
+  }
+  function prefillMyProfile(){
+    const me = crew.find(c=>c.id===session.crew_id);
+    if(me){
+      document.getElementById('myTag').value = me.tag || '';
+      document.getElementById('myBio').value = me.bio || '';
+    }
+  }
+  document.getElementById('saveProfileBtn').addEventListener('click', async ()=>{
+    const tag = document.getElementById('myTag').value.trim();
+    const bio = document.getElementById('myBio').value.trim();
+    const { error } = await sb.rpc('update_my_profile', { p_token: session.token, p_tag: tag, p_bio: bio });
+    if(error){ alert(rpcErrorMsg(error)); return; }
+    await loadCrew();
+    renderCrew();
+  });
+
+  // ============================================================
+  // PACKING & SHOPPING (delat, via RPC)
+  // ============================================================
+  function makeList(cfg){
+    let items = [];
+    const listEl = document.getElementById(cfg.listId);
+    const inputEl = document.getElementById(cfg.inputId);
+    const btnEl = document.getElementById(cfg.btnId);
+
+    function render(){
+      listEl.innerHTML = items.length ? '' : '<div class="empty">Inget tillagt än.</div>';
+      items.forEach((it)=>{
+        const li = document.createElement('li');
+        li.className = 'item' + (it.checked ? ' checked' : '');
+        li.innerHTML = `
+          <input type="checkbox" data-id="${it.id}" ${it.checked?'checked':''} />
+          <span class="txt">${escapeHtml(it.text)}</span>
+          <span class="who">${it.added_by ? 'av '+escapeHtml(it.added_by) : ''}</span>
+          <button class="rm icon-btn" data-id="${it.id}" title="Ta bort">✕</button>`;
+        listEl.appendChild(li);
+      });
+      listEl.querySelectorAll('input[type=checkbox]').forEach(cb=>{
+        cb.addEventListener('change', async ()=>{
+          const { error } = await sb.rpc(cfg.toggleFn, { p_token: session.token, p_id: parseInt(cb.dataset.id), p_checked: cb.checked });
+          if(error){ alert(rpcErrorMsg(error)); return; }
+          const it = items.find(x=>String(x.id)===cb.dataset.id);
+          if(it) it.checked = cb.checked;
+          render();
+        });
+      });
+      listEl.querySelectorAll('.rm').forEach(btn=>{
+        btn.addEventListener('click', async ()=>{
+          const { error } = await sb.rpc(cfg.removeFn, { p_token: session.token, p_id: parseInt(btn.dataset.id) });
+          if(error){ alert(rpcErrorMsg(error)); return; }
+          items = items.filter(x=>String(x.id)!==btn.dataset.id);
+          render();
+        });
+      });
+    }
+
+    async function add(){
+      const val = inputEl.value.trim();
+      if(!val) return;
+      btnEl.disabled = true;
+      const { data, error } = await sb.rpc(cfg.addFn, { p_token: session.token, p_text: val });
+      btnEl.disabled = false;
+      if(error){ alert(rpcErrorMsg(error)); return; }
+      items.push(Array.isArray(data) ? data[0] : data);
+      inputEl.value = '';
+      render();
+    }
+    btnEl.addEventListener('click', add);
+    inputEl.addEventListener('keydown', e=>{ if(e.key==='Enter') add(); });
+
+    return {
+      init: async ()=>{
+        const { data, error } = await sb.from(cfg.table).select('*').order('created_at');
+        items = (!error && data) ? data : [];
+        render();
+      }
+    };
+  }
+
+  const packingList = makeList({
+    table:'packing_items', listId:'packingList', inputId:'packingInput', btnId:'packingAddBtn',
+    addFn:'add_packing_item', toggleFn:'toggle_packing_item', removeFn:'remove_packing_item'
+  });
+  const shoppingList = makeList({
+    table:'shopping_items', listId:'shoppingList', inputId:'shoppingInput', btnId:'shoppingAddBtn',
+    addFn:'add_shopping_item', toggleFn:'toggle_shopping_item', removeFn:'remove_shopping_item'
+  });
+
+  // ============================================================
+  // DISCUSSION
+  // ============================================================
+  let posts = [];
+  const discussionList = document.getElementById('discussionList');
+
+  async function loadPosts(){
+    const { data, error } = await sb.from('discussion_posts').select('*').order('created_at');
+    posts = (!error && data) ? data : [];
+  }
+  function renderPosts(){
+    discussionList.innerHTML = posts.length ? '' : '<div class="empty">Inga inlägg än — skriv det första!</div>';
+    [...posts].reverse().forEach(p=>{
+      const div = document.createElement('div');
+      div.className = 'post';
+      const time = new Date(p.created_at).toLocaleDateString('sv-SE',{day:'numeric',month:'short'}) + ' ' + new Date(p.created_at).toLocaleTimeString('sv-SE',{hour:'2-digit',minute:'2-digit'});
+      div.innerHTML = `<div class="meta">${escapeHtml(p.author)} · ${escapeHtml(time)}</div><div class="txt">${escapeHtml(p.body)}</div>`;
+      discussionList.appendChild(div);
+    });
+  }
+  document.getElementById('postBtn').addEventListener('click', async ()=>{
+    const el = document.getElementById('postInput');
+    const val = el.value.trim();
+    if(!val) return;
+    const { data, error } = await sb.rpc('add_discussion_post', { p_token: session.token, p_body: val });
+    if(error){ alert(rpcErrorMsg(error)); return; }
+    posts.push(Array.isArray(data) ? data[0] : data);
+    el.value = '';
+    renderPosts();
+  });
+
+  // ============================================================
+  // BOOT
+  // ============================================================
+  async function boot(){
+    await loadItinerary();
+    renderItinerary();
+    renderMap();
+    await loadCrew();
+    renderCrew();
+    prefillMyProfile();
+    await packingList.init();
+    await shoppingList.init();
+    await loadPosts();
+    renderPosts();
+  }
+
+  // ---------- start ----------
+  loadSession();
+  populateNameDropdown();
+  if(session){
+    enterApp();
+  }
+
+})();
+</script>
+</body>
+</html>
