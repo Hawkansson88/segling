@@ -684,6 +684,33 @@
     gap:10px;
   }
   .item-main .txt{flex:1;}
+  .item-main .item-edit,
+  .item-main .item-save,
+  .item-main .item-cancel{
+    border:none;
+    background:none;
+    padding:0;
+    font-family:'Inter',sans-serif;
+    font-size:12px;
+    font-weight:600;
+    color:var(--ink-soft);
+    cursor:pointer;
+    flex-shrink:0;
+  }
+  .item-main .item-edit:hover,
+  .item-main .item-save:hover{color:var(--navy);}
+  .item-main .item-cancel:hover{color:var(--coral);}
+  .item-edit-input{
+    flex:1;
+    min-width:0;
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:6px 10px;
+    font-family:'Inter',sans-serif;
+    font-size:13.5px;
+    outline:none;
+  }
+  .item-edit-input:focus{border-color:var(--brass);}
   .empty{color:var(--ink-soft);font-size:13px;font-style:italic;padding:10px 2px;}
 
   /* discussion */
@@ -858,7 +885,8 @@
     textarea.kuriosa-input,
     .topic-compose input,
     .comment-compose input,
-    textarea.comment-edit-input{
+    textarea.comment-edit-input,
+    .item-edit-input{
       font-size:16px;
     }
     .day-card{
@@ -980,7 +1008,7 @@
   <!-- PACKING -->
   <section class="panel" id="panel-packing">
     <h2 class="panel-title">Förslag på packning</h2>
-    <p class="panel-sub">Skriv vad du tar med, så andra vet att det inte behöver packas av någon mer. Kommentera under varje rad om du vill.</p>
+    <p class="panel-sub">Skriv vad du tar med, så andra vet att det inte behöver packas av någon mer. Kommentera under varje rad om du vill. Du kan ändra och ta bort det du själv lagt in.</p>
     <div class="add-row">
       <input id="packingInput" placeholder="t.ex. Jag har packat högtalare" />
       <button id="packingAddBtn" class="btn btn-brass">Lägg till</button>
@@ -991,7 +1019,7 @@
   <!-- SHOPPING -->
   <section class="panel" id="panel-shopping">
     <h2 class="panel-title">Inköpslista</h2>
-    <p class="panel-sub">Vad som ska handlas — lägg till och ta bort allteftersom.</p>
+    <p class="panel-sub">Vad som ska handlas — lägg till och bocka av allteftersom. Kommentera under varje rad om du vill. Du kan ändra och ta bort det du själv lagt in.</p>
     <div class="add-row">
       <input id="shoppingInput" placeholder="Lägg till vara..." />
       <button id="shoppingAddBtn" class="btn btn-brass">Lägg till</button>
@@ -1674,18 +1702,36 @@
     const inputEl = document.getElementById(cfg.inputId);
     const btnEl = document.getElementById(cfg.btnId);
     const expanded = new Set();
+    let editingItemId = null;
+
+    function isOwnItem(it){
+      return (it.added_by || '').trim().toLowerCase() === currentUser().trim().toLowerCase();
+    }
+    function displayText(it){
+      const overlay = latestItemEdit(cfg.listKey, it.id);
+      return overlay != null ? overlay : (it.text || '');
+    }
 
     function render(){
       listEl.innerHTML = items.length ? '' : `<div class="empty">${cfg.emptyText || 'Inget tillagt än.'}</div>`;
       items.forEach((it)=>{
         const li = document.createElement('li');
         const checked = cfg.checkable && it.checked;
+        const own = isOwnItem(it);
+        const text = displayText(it);
+        const edited = latestItemEdit(cfg.listKey, it.id) != null;
+        const editing = own && String(editingItemId) === String(it.id);
         li.className = 'item' + (checked ? ' checked' : '') + (cfg.comments ? ' item-block' : '');
-        const main = `
+        const main = editing ? `
           ${cfg.checkable ? `<input type="checkbox" data-id="${it.id}" ${it.checked?'checked':''} />` : ''}
-          <span class="txt">${escapeHtml(it.text)}</span>
-          <span class="who">${it.added_by ? 'av '+escapeHtml(it.added_by) : ''}</span>
-          <button class="rm icon-btn" data-id="${it.id}" title="Ta bort">✕</button>`;
+          <input class="item-edit-input" data-id="${it.id}" value="${escapeAttr(text)}" />
+          <button type="button" class="item-save" data-id="${it.id}">Spara</button>
+          <button type="button" class="item-cancel">Avbryt</button>` : `
+          ${cfg.checkable ? `<input type="checkbox" data-id="${it.id}" ${it.checked?'checked':''} />` : ''}
+          <span class="txt">${escapeHtml(text)}</span>
+          <span class="who">${it.added_by ? 'av '+escapeHtml(it.added_by) : ''}${edited ? ' · redigerad' : ''}</span>
+          ${own ? `<button type="button" class="item-edit" data-id="${it.id}">Ändra</button>
+          <button class="rm icon-btn" data-id="${it.id}" title="Ta bort">✕</button>` : ''}`;
         if(cfg.comments){
           const thread = commentsFor(cfg.commentType, it.id);
           const open = expanded.has(String(it.id));
@@ -1715,11 +1761,37 @@
           });
         });
       }
+      listEl.querySelectorAll('.item-edit').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          editingItemId = btn.dataset.id;
+          render();
+        });
+      });
+      listEl.querySelectorAll('.item-cancel').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          editingItemId = null;
+          render();
+        });
+      });
+      listEl.querySelectorAll('.item-save').forEach(btn=>{
+        btn.addEventListener('click', ()=>saveItemEdit(btn.dataset.id));
+      });
+      listEl.querySelectorAll('.item-edit-input').forEach(el=>{
+        el.focus();
+        el.addEventListener('keydown', e=>{
+          if(e.key==='Enter'){ e.preventDefault(); saveItemEdit(el.dataset.id); }
+          if(e.key==='Escape'){ editingItemId = null; render(); }
+        });
+      });
       listEl.querySelectorAll('.rm').forEach(btn=>{
         btn.addEventListener('click', async ()=>{
+          const it = items.find(x=>String(x.id)===String(btn.dataset.id));
+          if(!it || !isOwnItem(it)) return;
+          if(!confirm('Ta bort raden?')) return;
           const { error } = await sb.rpc(cfg.removeFn, { p_token: session.token, p_id: parseInt(btn.dataset.id) });
           if(error){ alert(rpcErrorMsg(error)); return; }
           items = items.filter(x=>String(x.id)!==btn.dataset.id);
+          if(String(editingItemId)===String(btn.dataset.id)) editingItemId = null;
           render();
         });
       });
@@ -1740,6 +1812,22 @@
         });
         bindCommentActions(listEl, render);
       }
+    }
+
+    async function saveItemEdit(itemId){
+      const it = items.find(x=>String(x.id)===String(itemId));
+      if(!it || !isOwnItem(it)) return;
+      const input = [...listEl.querySelectorAll('.item-edit-input')].find(el=>String(el.dataset.id)===String(itemId));
+      const val = input ? input.value.trim() : '';
+      if(!val) return;
+      const { data, error } = await sb.rpc('add_discussion_post', {
+        p_token: session.token,
+        p_body: JSON.stringify({ _l: 'iedit', list: cfg.listKey, id: String(itemId), text: val })
+      });
+      if(error){ alert(rpcErrorMsg(error)); return; }
+      posts.push(Array.isArray(data) ? data[0] : data);
+      editingItemId = null;
+      render();
     }
 
     async function addItemComment(itemId){
@@ -1780,13 +1868,14 @@
   const packingList = makeList({
     table:'packing_items', listId:'packingList', inputId:'packingInput', btnId:'packingAddBtn',
     addFn:'add_packing_item', removeFn:'remove_packing_item',
-    checkable:false, comments:true, commentType:'pc',
+    listKey:'packing', checkable:false, comments:true, commentType:'pc',
     emptyText:'Inga förslag än — skriv det första!'
   });
   const shoppingList = makeList({
     table:'shopping_items', listId:'shoppingList', inputId:'shoppingInput', btnId:'shoppingAddBtn',
     addFn:'add_shopping_item', toggleFn:'toggle_shopping_item', removeFn:'remove_shopping_item',
-    checkable:true
+    listKey:'shopping', checkable:true, comments:true, commentType:'sc',
+    emptyText:'Inget att handla än — skriv det första!'
   });
 
   // ============================================================
@@ -1820,7 +1909,7 @@
     return { _l: 't', id: 'legacy-' + p.id, title: body.split('\n')[0].slice(0, 90) || 'Inlägg', author: p.author, created_at: p.created_at, postId: p.id, cid: String(p.id) };
   }
   function isOwnComment(c){
-    return (c.author || '').trim() === currentUser().trim();
+    return (c.author || '').trim().toLowerCase() === currentUser().trim().toLowerCase();
   }
   function linkify(text){
     const escaped = escapeHtml(text || '');
@@ -1843,6 +1932,16 @@
       last = re.lastIndex;
     }
     return (out + escaped.slice(last)).replace(/\n/g, '<br>');
+  }
+  function latestItemEdit(listKey, itemId){
+    let text = null;
+    posts.forEach(p=>{
+      const row = decodeLogg(p);
+      if(row._l === 'iedit' && row.list === listKey && String(row.id) === String(itemId) && row.text != null){
+        text = row.text;
+      }
+    });
+    return text;
   }
   function applyCommentEdits(comments){
     const edits = {};
@@ -1965,7 +2064,7 @@
     const comments = {};
     posts.forEach(p=>{
       const row = decodeLogg(p);
-      if(row._l === 'cc' || row._l === 'cprof' || row._l === 'cedit' || row._l === 'cdel' || row._l === 'pc' || row._l === 'clike' || row._l === 'cunlike') return;
+      if(row._l === 'cc' || row._l === 'cprof' || row._l === 'cedit' || row._l === 'cdel' || row._l === 'pc' || row._l === 'sc' || row._l === 'iedit' || row._l === 'clike' || row._l === 'cunlike') return;
       if(row._l === 'c'){
         (comments[row.id] ||= []).push(row);
       } else if(row._l === 't'){
